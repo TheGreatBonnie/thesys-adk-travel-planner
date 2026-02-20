@@ -41,6 +41,10 @@ FLIGHT_SCHEMA: dict[str, Any] = _obj(
             "type": "number",
             "description": "Total price in USD for all travelers.",
         },
+        "image_url": {
+            "type": "string",
+            "description": "Optional preview image URL for the flight card.",
+        },
     },
     required=[
         "flight_id",
@@ -86,6 +90,10 @@ HOTEL_SCHEMA: dict[str, Any] = _obj(
             "items": {"type": "string"},
             "description": "List of included amenities.",
         },
+        "image_url": {
+            "type": "string",
+            "description": "Optional preview image URL for the hotel card.",
+        },
     },
     required=[
         "hotel_id",
@@ -111,6 +119,10 @@ ITINERARY_DAY_SCHEMA: dict[str, Any] = _obj(
             "type": "array",
             "items": {"type": "string"},
             "description": "Planned activities for the day.",
+        },
+        "image_url": {
+            "type": "string",
+            "description": "Optional cover image URL for the itinerary day.",
         },
     },
     required=["date", "pace", "activities"],

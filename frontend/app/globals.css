@@ -70,6 +70,15 @@ main {
   background: #ffffff;
 }
 
+.custom-card-image {
+  width: 100%;
+  height: 130px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-bottom: 0.55rem;
+  display: block;
+}
+
 .custom-card.is-selected {
   border-color: #1f2421;
   box-shadow: 0 0 0 1px #1f2421 inset;

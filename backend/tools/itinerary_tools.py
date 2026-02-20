@@ -3,7 +3,14 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+import hashlib
 from typing import Any
+
+
+def _mock_image_url(seed: str, width: int = 960, height: int = 540) -> str:
+    """Return a deterministic image URL for itinerary day cards."""
+    safe_seed = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:20]
+    return f"https://picsum.photos/seed/{safe_seed}/{width}/{height}"
 
 
 def build_daily_itinerary(
@@ -46,6 +53,7 @@ def build_daily_itinerary(
                 "date": current.isoformat(),
                 "pace": pace,
                 "activities": picks,
+                "image_url": _mock_image_url(f"{destination}-{current.isoformat()}-{pace}"),
             }
         )
 

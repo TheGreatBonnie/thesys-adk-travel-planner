@@ -12,6 +12,12 @@ def _stable_int(seed: str, low: int, high: int) -> int:
     return low + (value % (high - low + 1))
 
 
+def _mock_image_url(seed: str, width: int = 720, height: int = 420) -> str:
+    """Return a deterministic image URL for mock hotel cards."""
+    safe_seed = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:20]
+    return f"https://picsum.photos/seed/{safe_seed}/{width}/{height}"
+
+
 def search_hotels(
     city: str,
     check_in_date: str,
@@ -47,6 +53,7 @@ def search_hotels(
                 "star_rating": rating,
                 "walkability_score": walk_score,
                 "amenities": ["wifi", "breakfast", "gym"],
+                "image_url": _mock_image_url(f"{seed}-image"),
             }
         )
 

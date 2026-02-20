@@ -13,6 +13,7 @@ type Flight = {
   stops: number;
   cabin_class: string;
   total_price_usd: number;
+  image_url?: string;
 };
 
 type Hotel = {
@@ -27,12 +28,14 @@ type Hotel = {
   star_rating: number;
   walkability_score: number;
   amenities: string[];
+  image_url?: string;
 };
 
 type ItineraryDay = {
   date: string;
   pace: string;
   activities: string[];
+  image_url?: string;
 };
 
 type CostBreakdown = {
@@ -78,6 +81,14 @@ function useSelections() {
     selectedHotelId,
     hasBothSelections: Boolean(selectedFlightId && selectedHotelId),
   };
+}
+
+function CardImage({ src, alt }: { src?: string; alt: string }) {
+  if (!src) {
+    return null;
+  }
+
+  return <img src={src} alt={alt} className="custom-card-image" loading="lazy" />;
 }
 
 export function FlightList({
@@ -129,6 +140,10 @@ export function FlightList({
               key={flight.flight_id}
               className={`custom-card ${isSelected ? "is-selected" : ""}`}
             >
+              <CardImage
+                src={flight.image_url}
+                alt={`${flight.airline} flight ${flight.flight_id}`}
+              />
               <div className="custom-card-top">
                 <strong>{flight.airline}</strong>
                 <span>${flight.total_price_usd.toLocaleString()}</span>
@@ -217,6 +232,10 @@ export function HotelCardGrid({
               key={hotel.hotel_id}
               className={`custom-card ${isSelected ? "is-selected" : ""}`}
             >
+              <CardImage
+                src={hotel.image_url}
+                alt={`${hotel.name} in ${hotel.city}`}
+              />
               <div className="custom-card-top">
                 <strong>{hotel.name}</strong>
                 <span>${hotel.nightly_rate_usd}/night</span>
@@ -300,6 +319,7 @@ export function ItineraryTimeline({
                 <strong>{day.date}</strong>
                 <span>{day.pace}</span>
               </div>
+              <CardImage src={day.image_url} alt={`Itinerary day ${day.date}`} />
               <ul>
                 {day.activities.map((activity, index) => (
                   <li key={`${day.date}-${index}`}>{activity}</li>

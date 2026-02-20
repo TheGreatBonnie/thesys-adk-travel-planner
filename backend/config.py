@@ -37,6 +37,7 @@ When presenting travel recommendations, prefer these custom components when data
 - BudgetBreakdown for cost summaries.
 
 Use exact property names defined by each component schema and avoid adding unknown fields.
+When available from tool outputs, include `image_url` fields in FlightList, HotelCardGrid, and ItineraryTimeline items.
 
 If you receive a message line starting with `COMPONENT_TRIGGER ` followed by JSON:
 - Parse the JSON payload and treat it as an explicit user UI action.
