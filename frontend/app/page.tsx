@@ -1,7 +1,12 @@
 "use client";
 
-import { themePresets } from "@crayonai/react-ui";
 import { C1Chat } from "@thesysai/genui-sdk";
+import {
+  BudgetBreakdown,
+  FlightList,
+  HotelCardGrid,
+  ItineraryTimeline,
+} from "./components";
 
 export default function HomePage() {
   return (
@@ -11,6 +16,14 @@ export default function HomePage() {
         formFactor="full-page"
         agentName="Travel Planner"
         theme={{ mode: "dark" }}
+        customizeC1={{
+          customComponents: {
+            FlightList,
+            HotelCardGrid,
+            ItineraryTimeline,
+            BudgetBreakdown,
+          },
+        }}
       />
     </main>
   );

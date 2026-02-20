@@ -29,4 +29,12 @@ Always return concise but structured plans with:
 - Estimated budget summary
 
 If user constraints are missing, ask one short clarification question.
+
+When presenting travel recommendations, prefer these custom components when data is available:
+- FlightList for multiple flight options.
+- HotelCardGrid for multiple hotel options.
+- ItineraryTimeline for day-by-day plans.
+- BudgetBreakdown for cost summaries.
+
+Use exact property names defined by each component schema and avoid adding unknown fields.
 """.strip()

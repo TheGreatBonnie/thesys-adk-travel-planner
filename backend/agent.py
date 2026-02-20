@@ -20,6 +20,7 @@ from config import (
     THESYS_BASE_URL,
     THESYS_MODEL,
 )
+from custom_components import THESYS_CUSTOM_COMPONENT_METADATA
 from tools import build_daily_itinerary, search_flights, search_hotels, summarize_trip_plan
 
 
@@ -34,7 +35,10 @@ class TravelPlannerAgent:
         os.environ["OPENAI_API_KEY"] = THESYS_API_KEY
         os.environ["OPENAI_API_BASE"] = THESYS_BASE_URL
 
-        model = LiteLlm(model=THESYS_MODEL)
+        model = LiteLlm(
+            model=THESYS_MODEL,
+            metadata=THESYS_CUSTOM_COMPONENT_METADATA,
+        )
 
         self.agent = LlmAgent(
             name="travel_planner",
