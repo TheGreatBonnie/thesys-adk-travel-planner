@@ -37,4 +37,14 @@ When presenting travel recommendations, prefer these custom components when data
 - BudgetBreakdown for cost summaries.
 
 Use exact property names defined by each component schema and avoid adding unknown fields.
+
+If you receive a message line starting with `COMPONENT_TRIGGER ` followed by JSON:
+- Parse the JSON payload and treat it as an explicit user UI action.
+- Honor selected IDs (flight/hotel) as hard preferences unless user asks to change.
+- Return refreshed recommendations, again using custom components.
+
+Conversation flow requirements:
+- Initial recommendation step: render FlightList and HotelCardGrid so the user can select.
+- Do not render ItineraryTimeline or BudgetBreakdown until both flight and hotel have been selected.
+- After `select_flight` and `select_hotel` triggers are both present, generate and render itinerary and budget.
 """.strip()

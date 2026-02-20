@@ -47,6 +47,12 @@ main {
   font-size: 0.875rem;
 }
 
+.custom-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .custom-list,
 .custom-grid {
   display: grid;
@@ -92,6 +98,24 @@ main {
   cursor: pointer;
 }
 
+.custom-card button:disabled,
+.custom-card-stack > button:disabled,
+.timeline-content > button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.trigger-link-button {
+  border: 0;
+  border-radius: 6px;
+  background: #d7c9b7;
+  color: #1f2421;
+  padding: 0.2rem 0.5rem;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
 .timeline-list {
   list-style: none;
   margin: 0;
@@ -127,6 +151,23 @@ main {
 .budget-row {
   display: grid;
   gap: 0.35rem;
+}
+
+.custom-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.selection-gate {
+  border: 1px dashed #c6b49e;
+  border-radius: 10px;
+  padding: 0.75rem;
+  background: #fff3e4;
+}
+
+.selection-gate p {
+  margin: 0.25rem 0;
 }
 
 .budget-bar-track {

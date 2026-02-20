@@ -42,6 +42,44 @@ type CostBreakdown = {
   total_estimate: number;
 };
 
+type TriggerPayload = Record<string, unknown>;
+type OnActionFn = ReturnType<typeof useOnAction>;
+
+function fireTrigger(
+  onAction: OnActionFn,
+  action: string,
+  payload: TriggerPayload,
+  humanMessage: string
+) {
+  const serializedPayload = JSON.stringify({
+    source: "travel_custom_component",
+    action,
+    payload,
+  });
+
+  onAction(
+    humanMessage,
+    [
+      `COMPONENT_TRIGGER ${serializedPayload}`,
+      "Treat this as an explicit user action from the UI.",
+      "Use tools as needed and respond with updated travel recommendations using custom components.",
+    ].join("\n")
+  );
+}
+
+function useSelections() {
+  const { getValue: getSelectedFlightId } = useC1State("selected_flight_id");
+  const { getValue: getSelectedHotelId } = useC1State("selected_hotel_id");
+  const selectedFlightId = getSelectedFlightId() as string | undefined;
+  const selectedHotelId = getSelectedHotelId() as string | undefined;
+
+  return {
+    selectedFlightId,
+    selectedHotelId,
+    hasBothSelections: Boolean(selectedFlightId && selectedHotelId),
+  };
+}
+
 export function FlightList({
   flights,
   title = "Flight Options",
@@ -57,7 +95,31 @@ export function FlightList({
     <section className="custom-card-stack">
       <header className="custom-header-row">
         <h3>{title}</h3>
-        <span>{flights.length} results</span>
+        <div className="custom-header-actions">
+          <span>{flights.length} results</span>
+          <button
+            type="button"
+            className="trigger-link-button"
+            onClick={() =>
+              fireTrigger(
+                onAction,
+                "compare_flights",
+                {
+                  flights: flights.map((flight) => ({
+                    flight_id: flight.flight_id,
+                    airline: flight.airline,
+                    total_price_usd: flight.total_price_usd,
+                    stops: flight.stops,
+                    duration_hours: flight.duration_hours,
+                  })),
+                },
+                "Compare flights"
+              )
+            }
+          >
+            Compare
+          </button>
+        </div>
       </header>
       <div className="custom-list">
         {flights.map((flight) => {
@@ -81,9 +143,18 @@ export function FlightList({
                 type="button"
                 onClick={() => {
                   setValue(flight.flight_id);
-                  onAction(
-                    "Select Flight",
-                    `User selected flight ${flight.flight_id} with ${flight.airline} from ${flight.origin} to ${flight.destination} for $${flight.total_price_usd}.`
+                  fireTrigger(
+                    onAction,
+                    "select_flight",
+                    {
+                      flight_id: flight.flight_id,
+                      airline: flight.airline,
+                      origin: flight.origin,
+                      destination: flight.destination,
+                      departure_date: flight.departure_date,
+                      total_price_usd: flight.total_price_usd,
+                    },
+                    "Select flight"
                   );
                 }}
               >
@@ -112,7 +183,31 @@ export function HotelCardGrid({
     <section className="custom-card-stack">
       <header className="custom-header-row">
         <h3>{title}</h3>
-        <span>{hotels.length} results</span>
+        <div className="custom-header-actions">
+          <span>{hotels.length} results</span>
+          <button
+            type="button"
+            className="trigger-link-button"
+            onClick={() =>
+              fireTrigger(
+                onAction,
+                "compare_hotels",
+                {
+                  hotels: hotels.map((hotel) => ({
+                    hotel_id: hotel.hotel_id,
+                    name: hotel.name,
+                    nightly_rate_usd: hotel.nightly_rate_usd,
+                    star_rating: hotel.star_rating,
+                    walkability_score: hotel.walkability_score,
+                  })),
+                },
+                "Compare hotels"
+              )
+            }
+          >
+            Compare
+          </button>
+        </div>
       </header>
       <div className="custom-grid">
         {hotels.map((hotel) => {
@@ -137,9 +232,18 @@ export function HotelCardGrid({
                 type="button"
                 onClick={() => {
                   setValue(hotel.hotel_id);
-                  onAction(
-                    "Select Hotel",
-                    `User selected hotel ${hotel.hotel_id} (${hotel.name}) in ${hotel.city} at $${hotel.nightly_rate_usd} per night.`
+                  fireTrigger(
+                    onAction,
+                    "select_hotel",
+                    {
+                      hotel_id: hotel.hotel_id,
+                      name: hotel.name,
+                      city: hotel.city,
+                      check_in_date: hotel.check_in_date,
+                      check_out_date: hotel.check_out_date,
+                      nightly_rate_usd: hotel.nightly_rate_usd,
+                    },
+                    "Select hotel"
                   );
                 }}
               >
@@ -161,6 +265,25 @@ export function ItineraryTimeline({
   title?: string;
 }) {
   const onAction = useOnAction();
+  const { selectedFlightId, selectedHotelId, hasBothSelections } = useSelections();
+
+  if (!hasBothSelections) {
+    return (
+      <section className="custom-card-stack">
+        <header className="custom-header-row">
+          <h3>{title}</h3>
+          <span>Locked until selections</span>
+        </header>
+        <div className="selection-gate">
+          <p>Select your recommended flight and hotel first.</p>
+          <p>
+            Flight: {selectedFlightId ? "Selected" : "Not selected"} • Hotel:{" "}
+            {selectedHotelId ? "Selected" : "Not selected"}
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="custom-card-stack">
@@ -185,9 +308,15 @@ export function ItineraryTimeline({
               <button
                 type="button"
                 onClick={() =>
-                  onAction(
-                    "Refine day",
-                    `User requested refinements for itinerary day ${day.date} with pace ${day.pace}.`
+                  fireTrigger(
+                    onAction,
+                    "refine_itinerary_day",
+                    {
+                      date: day.date,
+                      pace: day.pace,
+                      activities: day.activities,
+                    },
+                    "Refine this day"
                   )
                 }
               >
@@ -197,6 +326,24 @@ export function ItineraryTimeline({
           </li>
         ))}
       </ol>
+      <button
+        type="button"
+        onClick={() =>
+          fireTrigger(
+            onAction,
+            "regenerate_itinerary",
+            {
+              days: days.map((day) => ({
+                date: day.date,
+                pace: day.pace,
+              })),
+            },
+            "Regenerate itinerary"
+          )
+        }
+      >
+        Regenerate itinerary
+      </button>
     </section>
   );
 }
@@ -209,7 +356,26 @@ export function BudgetBreakdown({
   title?: string;
 }) {
   const onAction = useOnAction();
+  const { selectedFlightId, selectedHotelId, hasBothSelections } = useSelections();
   const total = estimated_cost_breakdown_usd.total_estimate || 0;
+
+  if (!hasBothSelections) {
+    return (
+      <section className="custom-card-stack">
+        <header className="custom-header-row">
+          <h3>{title}</h3>
+          <span>Locked until selections</span>
+        </header>
+        <div className="selection-gate">
+          <p>Budget appears after flight and hotel are selected.</p>
+          <p>
+            Flight: {selectedFlightId ? "Selected" : "Not selected"} • Hotel:{" "}
+            {selectedHotelId ? "Selected" : "Not selected"}
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   const rows = [
     { label: "Flight", value: estimated_cost_breakdown_usd.flight || 0 },
@@ -244,17 +410,41 @@ export function BudgetBreakdown({
           );
         })}
       </div>
-      <button
-        type="button"
-        onClick={() =>
-          onAction(
-            "Adjust budget",
-            `User wants to adjust the budget. Current estimate is $${total}.`
-          )
-        }
-      >
-        Optimize cost
-      </button>
+      <div className="custom-action-row">
+        <button
+          type="button"
+          onClick={() =>
+            fireTrigger(
+              onAction,
+              "optimize_budget",
+              {
+                estimated_cost_breakdown_usd,
+              },
+              "Optimize cost"
+            )
+          }
+        >
+          Optimize cost
+        </button>
+        <button
+          type="button"
+          disabled={!selectedFlightId || !selectedHotelId}
+          onClick={() =>
+            fireTrigger(
+              onAction,
+              "finalize_plan_with_selections",
+              {
+                selected_flight_id: selectedFlightId,
+                selected_hotel_id: selectedHotelId,
+                estimated_cost_breakdown_usd,
+              },
+              "Finalize plan"
+            )
+          }
+        >
+          Finalize with selections
+        </button>
+      </div>
     </section>
   );
 }
