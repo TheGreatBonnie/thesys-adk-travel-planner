@@ -54,12 +54,14 @@ function fireTrigger(
   payload: TriggerPayload,
   humanMessage: string
 ) {
+  // Step 1: Build a structured trigger payload the backend prompt can parse.
   const serializedPayload = JSON.stringify({
     source: "travel_custom_component",
     action,
     payload,
   });
 
+  // Step 2: Send a user-visible message plus a machine-readable trigger block.
   onAction(
     humanMessage,
     [
@@ -71,11 +73,15 @@ function fireTrigger(
 }
 
 function useSelections() {
+  // Step 1: Read flight selection from shared C1 state.
   const { getValue: getSelectedFlightId } = useC1State("selected_flight_id");
+  // Step 2: Read hotel selection from shared C1 state.
   const { getValue: getSelectedHotelId } = useC1State("selected_hotel_id");
+  // Step 3: Resolve current state values for this render.
   const selectedFlightId = getSelectedFlightId() as string | undefined;
   const selectedHotelId = getSelectedHotelId() as string | undefined;
 
+  // Step 4: Return IDs plus a convenience flag for gated components.
   return {
     selectedFlightId,
     selectedHotelId,
@@ -84,10 +90,12 @@ function useSelections() {
 }
 
 function CardImage({ src, alt }: { src?: string; alt: string }) {
+  // Step 1: Skip rendering when no image URL is available.
   if (!src) {
     return null;
   }
 
+  // Step 2: Render a lazy-loaded image to keep UI responsive.
   return <img src={src} alt={alt} className="custom-card-image" loading="lazy" />;
 }
 
@@ -98,10 +106,13 @@ export function FlightList({
   flights: Flight[];
   title?: string;
 }) {
+  // Step 1: Get action dispatcher for UI -> agent triggers.
   const onAction = useOnAction();
+  // Step 2: Bind to shared selected-flight state for highlight and gating.
   const { getValue, setValue } = useC1State("selected_flight_id");
   const selectedFlightId = getValue() as string | undefined;
 
+  // Step 3: Render list header, compare action, and one interactive card per flight.
   return (
     <section className="custom-card-stack">
       <header className="custom-header-row">
@@ -112,6 +123,7 @@ export function FlightList({
             type="button"
             className="trigger-link-button"
             onClick={() =>
+              // Step 4: Trigger model-side comparison with a compact data payload.
               fireTrigger(
                 onAction,
                 "compare_flights",
@@ -157,7 +169,9 @@ export function FlightList({
               <button
                 type="button"
                 onClick={() => {
+                  // Step 5: Persist selected flight locally for immediate UI feedback.
                   setValue(flight.flight_id);
+                  // Step 6: Send explicit selection back to the agent.
                   fireTrigger(
                     onAction,
                     "select_flight",
@@ -190,10 +204,13 @@ export function HotelCardGrid({
   hotels: Hotel[];
   title?: string;
 }) {
+  // Step 1: Get action dispatcher for UI -> agent triggers.
   const onAction = useOnAction();
+  // Step 2: Bind to shared selected-hotel state for highlight and gating.
   const { getValue, setValue } = useC1State("selected_hotel_id");
   const selectedHotelId = getValue() as string | undefined;
 
+  // Step 3: Render header, compare action, and one interactive card per hotel.
   return (
     <section className="custom-card-stack">
       <header className="custom-header-row">
@@ -204,6 +221,7 @@ export function HotelCardGrid({
             type="button"
             className="trigger-link-button"
             onClick={() =>
+              // Step 4: Trigger hotel comparison with key ranking fields.
               fireTrigger(
                 onAction,
                 "compare_hotels",
@@ -250,7 +268,9 @@ export function HotelCardGrid({
               <button
                 type="button"
                 onClick={() => {
+                  // Step 5: Persist selected hotel locally for immediate UI feedback.
                   setValue(hotel.hotel_id);
+                  // Step 6: Send explicit selection back to the agent.
                   fireTrigger(
                     onAction,
                     "select_hotel",
@@ -283,9 +303,11 @@ export function ItineraryTimeline({
   days: ItineraryDay[];
   title?: string;
 }) {
+  // Step 1: Get action dispatcher and current selection state.
   const onAction = useOnAction();
   const { selectedFlightId, selectedHotelId, hasBothSelections } = useSelections();
 
+  // Step 2: Gate itinerary until both flight and hotel are selected.
   if (!hasBothSelections) {
     return (
       <section className="custom-card-stack">
@@ -304,6 +326,7 @@ export function ItineraryTimeline({
     );
   }
 
+  // Step 3: Render itinerary timeline with per-day refinement actions.
   return (
     <section className="custom-card-stack">
       <header className="custom-header-row">
@@ -328,6 +351,7 @@ export function ItineraryTimeline({
               <button
                 type="button"
                 onClick={() =>
+                  // Step 4: Ask the agent to refine a single day.
                   fireTrigger(
                     onAction,
                     "refine_itinerary_day",
@@ -349,6 +373,7 @@ export function ItineraryTimeline({
       <button
         type="button"
         onClick={() =>
+          // Step 5: Ask the agent to regenerate the broader itinerary.
           fireTrigger(
             onAction,
             "regenerate_itinerary",
@@ -375,10 +400,13 @@ export function BudgetBreakdown({
   estimated_cost_breakdown_usd: CostBreakdown;
   title?: string;
 }) {
+  // Step 1: Get action dispatcher and current selection state.
   const onAction = useOnAction();
   const { selectedFlightId, selectedHotelId, hasBothSelections } = useSelections();
+  // Step 2: Compute total early to drive totals and percentages.
   const total = estimated_cost_breakdown_usd.total_estimate || 0;
 
+  // Step 3: Gate budget display until both selections are complete.
   if (!hasBothSelections) {
     return (
       <section className="custom-card-stack">
@@ -397,6 +425,7 @@ export function BudgetBreakdown({
     );
   }
 
+  // Step 4: Normalize rows used by the budget breakdown UI.
   const rows = [
     { label: "Flight", value: estimated_cost_breakdown_usd.flight || 0 },
     { label: "Hotel", value: estimated_cost_breakdown_usd.hotel || 0 },
@@ -414,6 +443,7 @@ export function BudgetBreakdown({
       </header>
       <div className="custom-list">
         {rows.map((row) => {
+          // Step 5: Calculate each category share for the progress bar.
           const pct = total > 0 ? Math.round((row.value / total) * 100) : 0;
           return (
             <div key={row.label} className="budget-row">
@@ -434,6 +464,7 @@ export function BudgetBreakdown({
         <button
           type="button"
           onClick={() =>
+            // Step 6: Ask the agent to optimize costs while preserving context.
             fireTrigger(
               onAction,
               "optimize_budget",
@@ -450,6 +481,7 @@ export function BudgetBreakdown({
           type="button"
           disabled={!selectedFlightId || !selectedHotelId}
           onClick={() =>
+            // Step 7: Finalize plan using explicit selected IDs and budget details.
             fireTrigger(
               onAction,
               "finalize_plan_with_selections",

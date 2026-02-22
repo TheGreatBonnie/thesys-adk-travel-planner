@@ -7,6 +7,7 @@ from typing import Any
 
 
 def _obj(description: str, properties: dict[str, Any], required: list[str]) -> dict[str, Any]:
+    # Step 1: Use one helper to enforce consistent JSON-schema structure.
     return {
         "type": "object",
         "description": description,
@@ -16,6 +17,7 @@ def _obj(description: str, properties: dict[str, Any], required: list[str]) -> d
     }
 
 
+# Step 2: Define reusable base schema for a single flight card item.
 FLIGHT_SCHEMA: dict[str, Any] = _obj(
     "Represents a single flight option for a route and date.",
     properties={
@@ -60,6 +62,7 @@ FLIGHT_SCHEMA: dict[str, Any] = _obj(
     ],
 )
 
+# Step 3: Define reusable base schema for a single hotel card item.
 HOTEL_SCHEMA: dict[str, Any] = _obj(
     "Represents a hotel option including nightly rate and trip dates.",
     properties={
@@ -110,6 +113,7 @@ HOTEL_SCHEMA: dict[str, Any] = _obj(
     ],
 )
 
+# Step 4: Define reusable base schema for one itinerary timeline day.
 ITINERARY_DAY_SCHEMA: dict[str, Any] = _obj(
     "Represents one day in the itinerary timeline.",
     properties={
@@ -128,6 +132,7 @@ ITINERARY_DAY_SCHEMA: dict[str, Any] = _obj(
     required=["date", "pace", "activities"],
 )
 
+# Step 5: Define reusable base schema for trip budget totals.
 BUDGET_BREAKDOWN_SCHEMA: dict[str, Any] = _obj(
     "Trip cost estimate in USD broken down by category.",
     properties={
@@ -145,6 +150,7 @@ BUDGET_BREAKDOWN_SCHEMA: dict[str, Any] = _obj(
     required=["flight", "hotel", "food_and_local_transport", "total_estimate"],
 )
 
+# Step 6: Compose component-level schemas consumed by the frontend renderer.
 CUSTOM_COMPONENT_SCHEMAS: dict[str, Any] = {
     "FlightList": _obj(
         "Displays multiple flight options in an interactive selectable list.",
@@ -204,6 +210,7 @@ CUSTOM_COMPONENT_SCHEMAS: dict[str, Any] = {
     ),
 }
 
+# Step 7: Serialize schemas into Thesys metadata format expected by the model.
 THESYS_CUSTOM_COMPONENT_METADATA: dict[str, str] = {
     "thesys": json.dumps({"c1_custom_components": CUSTOM_COMPONENT_SCHEMAS})
 }

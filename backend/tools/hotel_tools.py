@@ -7,14 +7,19 @@ from typing import Any
 
 
 def _stable_int(seed: str, low: int, high: int) -> int:
+    # Step 1: Hash the seed to make pseudo-random values deterministic.
     digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()
+    # Step 2: Convert a portion of the digest into an integer.
     value = int(digest[8:16], 16)
+    # Step 3: Constrain the value to the requested range.
     return low + (value % (high - low + 1))
 
 
 def _mock_image_url(seed: str, width: int = 720, height: int = 420) -> str:
     """Return a deterministic image URL for mock hotel cards."""
+    # Step 1: Build a stable seed to avoid image URL churn between runs.
     safe_seed = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:20]
+    # Step 2: Return a deterministic Picsum image URL for UI previews.
     return f"https://picsum.photos/seed/{safe_seed}/{width}/{height}"
 
 
@@ -26,20 +31,26 @@ def search_hotels(
     rooms: int = 1,
 ) -> list[dict[str, Any]]:
     """Return mock hotels for a city and date range."""
+    # Step 1: Use a fixed name set to keep demo results stable and comparable.
     hotel_names = [
         "Harbor View Suites",
         "Grand Central Hotel",
         "Maple & Stone Boutique",
         "Lumen Stay",
     ]
+    # Step 2: Collect generated hotel options.
     results: list[dict[str, Any]] = []
 
+    # Step 3: Generate one deterministic hotel option per name.
     for idx, name in enumerate(hotel_names, start=1):
         seed = f"{city}-{check_in_date}-{check_out_date}-{name}-{guests}-{rooms}"
+
+        # Step 4: Derive repeatable pricing and quality metrics.
         nightly = _stable_int(seed, 90, 420)
         rating = round(_stable_int(seed + "-rating", 38, 49) / 10, 1)
         walk_score = _stable_int(seed + "-walk", 60, 98)
 
+        # Step 5: Emit schema-compatible hotel data for the card grid.
         results.append(
             {
                 "hotel_id": f"HT-{idx:03d}",
@@ -57,4 +68,5 @@ def search_hotels(
             }
         )
 
+    # Step 6: Sort by affordability first, then by higher star rating.
     return sorted(results, key=lambda item: (item["nightly_rate_usd"], -item["star_rating"]))

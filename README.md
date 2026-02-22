@@ -27,6 +27,15 @@ Travel planning assistant with:
   2. Itinerary and budget are then shown/refined.
 - Mock image support in flights/hotels/itinerary via `image_url`.
 
+## Prerequisites
+
+Before running the project, make sure you have:
+
+- Python 3.10+ and `pip`
+- Node.js 20+ and `npm`
+- A Thesys API key (`THESYS_API_KEY`)
+- Open ports `3000` (frontend) and `8000` (backend)
+
 ## 1) Backend setup
 
 ```bash

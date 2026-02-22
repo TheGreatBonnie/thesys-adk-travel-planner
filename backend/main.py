@@ -20,12 +20,14 @@ from config import PORT, FRONTEND_URL
 # --------------------------------------------------------------------------- #
 
 class ChatMessage(BaseModel):
+    # Step 1: Match message fields emitted by the C1Chat client.
     role: str
     content: str
     id: Optional[str] = None
 
 
 class ChatRequest(BaseModel):
+    # Step 2: Mirror the full request envelope used by C1Chat.
     prompt: ChatMessage       # current user message
     threadId: str             # session/conversation identifier
     responseId: Optional[str] = None
@@ -36,12 +38,14 @@ class ChatRequest(BaseModel):
 # --------------------------------------------------------------------------- #
 
 app = FastAPI(
+    # Step 3: Initialize the API application and basic metadata.
     title="Travel Planner API",
     description="Multi-agent travel planner powered by Google ADK + Thesys C1",
     version="1.0.0",
 )
 
 app.add_middleware(
+    # Step 4: Allow frontend origins to call this backend during local dev.
     CORSMiddleware,
     allow_origins=[FRONTEND_URL, "http://localhost:3000", "http://localhost:5173"],
     allow_credentials=True,
@@ -56,6 +60,7 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
+    # Step 5: Provide a lightweight root endpoint for quick status checks.
     return {
         "status": "ok",
         "message": "Travel Planner API is running",
@@ -65,6 +70,7 @@ async def root():
 
 @app.get("/health")
 async def health():
+    # Step 6: Expose a simple health endpoint for probes and uptime checks.
     return {"status": "healthy"}
 
 
@@ -77,6 +83,7 @@ async def chat(request: ChatRequest):
     interactive UI: flight cards, hotel cards, itinerary timeline, budget chart.
     """
     try:
+        # Step 7: Delegate message processing to the ADK agent and stream SSE.
         return StreamingResponse(
             travel_planner_agent.process_message(
                 thread_id=request.threadId,
@@ -84,16 +91,19 @@ async def chat(request: ChatRequest):
             ),
             media_type="text/event-stream",
             headers={
+                # Step 8: Prevent buffering so streamed chunks reach the UI immediately.
                 "Cache-Control": "no-cache, no-transform",  # no-transform prevents proxy buffering
                 "Connection": "keep-alive",
             },
         )
     except Exception as e:
+        # Step 9: Convert runtime failures into a standard HTTP 500 response.
         print(f"Chat endpoint error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
+    # Step 10: Run the app locally with auto-reload for development.
     print(f"Starting Travel Planner server on port {PORT}")
     print(f"Frontend URL: {FRONTEND_URL}")
     print(f"API available at: http://localhost:{PORT}/api/chat")
