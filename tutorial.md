@@ -66,7 +66,18 @@ travel-planner/
 │   └── requirements.txt
 └── frontend/
     └── app/
-        ├── components.tsx
+        ├── types.ts
+        ├── triggers.ts
+        ├── hooks/
+        │   └── use-selections.ts
+        ├── components/
+        │   ├── index.ts
+        │   ├── CardImage.tsx
+        │   ├── SelectionGate.tsx
+        │   ├── FlightList.tsx
+        │   ├── HotelCardGrid.tsx
+        │   ├── ItineraryTimeline.tsx
+        │   └── BudgetBreakdown.tsx
         ├── globals.css
         ├── layout.tsx
         └── page.tsx
@@ -446,133 +457,101 @@ __all__ = [
 
 ## Step 4: Custom Component Schemas (`custom_components.py`)
 
-This file is the **bridge between backend and frontend**. It defines JSON schemas for each custom component. The schemas are serialized into Thesys metadata and passed to the model, telling it exactly what data shape to produce when it wants to render a component.
-
-> **Key rule:** The schema key names (e.g., `FlightList`, `HotelCardGrid`) must exactly match the React component names registered on the frontend.
+This file is the **bridge between backend and frontend**. It defines JSON schemas for each custom component. Instead of writing verbose JSON-schema dicts by hand, we'll use **Pydantic models**. Pydantic allows us to define the data shape with Python type hints and docstrings, and then automatically generate the JSON schemas that get sent to the Thesys C1 model.
 
 ```python
-"""Schemas for frontend Thesys custom components."""
+"""Pydantic models and Thesys metadata for frontend custom components."""
 
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
-def _obj(description: str, properties: dict[str, Any], required: list[str]) -> dict[str, Any]:
-    """Helper to enforce consistent JSON-schema structure."""
-    return {
-        "type": "object",
-        "description": description,
-        "properties": properties,
-        "required": required,
-        "additionalProperties": False,
-    }
+# ---------------------------------------------------------------------------
+# Item models — one per entity rendered inside a component
+# ---------------------------------------------------------------------------
+
+class Flight(BaseModel):
+    """Represents a single flight option for a route and date."""
+    flight_id: str = Field(description="Unique flight identifier.")
+    airline: str = Field(description="Airline name.")
+    origin: str = Field(description="Departure airport or city.")
+    destination: str = Field(description="Arrival airport or city.")
+    departure_date: str = Field(description="Departure date YYYY-MM-DD.")
+    departure_time_local: str = Field(description="Local departure time HH:MM.")
+    duration_hours: float = Field(description="Total flight duration in hours.")
+    stops: int = Field(description="Number of stops.")
+    cabin_class: str = Field(description="Cabin class.")
+    total_price_usd: float = Field(description="Total price in USD for all travelers.")
+    image_url: Optional[str] = Field(default=None, description="Optional preview image URL.")
+
+class Hotel(BaseModel):
+    """Represents a hotel option including nightly rate and trip dates."""
+    hotel_id: str = Field(description="Unique hotel identifier.")
+    name: str = Field(description="Hotel name.")
+    city: str = Field(description="City where hotel is located.")
+    check_in_date: str = Field(description="Check-in date YYYY-MM-DD.")
+    check_out_date: str = Field(description="Check-out date YYYY-MM-DD.")
+    guests: int = Field(description="Number of guests.")
+    rooms: int = Field(description="Number of rooms.")
+    nightly_rate_usd: float = Field(description="Nightly price in USD.")
+    star_rating: float = Field(description="Star rating, e.g. 4.5.")
+    walkability_score: int = Field(description="Walkability score from 0 to 100.")
+    amenities: list[str] = Field(description="List of included amenities.")
+    image_url: Optional[str] = Field(default=None, description="Optional preview image URL.")
+
+class ItineraryDay(BaseModel):
+    """Represents one day in the itinerary timeline."""
+    date: str = Field(description="Date in YYYY-MM-DD format.")
+    pace: str = Field(description="Travel pace for the day.")
+    activities: list[str] = Field(description="Planned activities for the day.")
+    image_url: Optional[str] = Field(default=None, description="Optional cover image URL.")
+
+class BudgetBreakdownData(BaseModel):
+    """Trip cost estimate in USD broken down by category."""
+    flight: float = Field(description="Estimated flight total in USD.")
+    hotel: float = Field(description="Estimated hotel total in USD.")
+    food_and_local_transport: float = Field(description="Estimated food and local transport total in USD.")
+    total_estimate: float = Field(description="Overall trip estimate in USD.")
 
 
-# Individual item schemas
+# ---------------------------------------------------------------------------
+# Component models — one per frontend React component
+# ---------------------------------------------------------------------------
 
-FLIGHT_SCHEMA: dict[str, Any] = _obj(
-    "Represents a single flight option for a route and date.",
-    properties={
-        "flight_id": {"type": "string", "description": "Unique flight identifier."},
-        "airline": {"type": "string", "description": "Airline name."},
-        "origin": {"type": "string", "description": "Departure airport or city."},
-        "destination": {"type": "string", "description": "Arrival airport or city."},
-        "departure_date": {"type": "string", "description": "Departure date YYYY-MM-DD."},
-        "departure_time_local": {"type": "string", "description": "Local departure time HH:MM."},
-        "duration_hours": {"type": "number", "description": "Total flight duration in hours."},
-        "stops": {"type": "integer", "description": "Number of stops."},
-        "cabin_class": {"type": "string", "description": "Cabin class."},
-        "total_price_usd": {"type": "number", "description": "Total price in USD."},
-        "image_url": {"type": "string", "description": "Optional preview image URL."},
-    },
-    required=[
-        "flight_id", "airline", "origin", "destination", "departure_date",
-        "departure_time_local", "duration_hours", "stops", "cabin_class", "total_price_usd",
-    ],
-)
+class FlightListComponent(BaseModel):
+    """Displays multiple flight options in an interactive selectable list."""
+    title: Optional[str] = Field(default=None, description="Optional title shown above cards.")
+    flights: list[Flight] = Field(description="List of flight options.")
 
-HOTEL_SCHEMA: dict[str, Any] = _obj(
-    "Represents a hotel option including nightly rate and trip dates.",
-    properties={
-        "hotel_id": {"type": "string", "description": "Unique hotel identifier."},
-        "name": {"type": "string", "description": "Hotel name."},
-        "city": {"type": "string", "description": "City where hotel is located."},
-        "check_in_date": {"type": "string", "description": "Check-in date YYYY-MM-DD."},
-        "check_out_date": {"type": "string", "description": "Check-out date YYYY-MM-DD."},
-        "guests": {"type": "integer", "description": "Number of guests."},
-        "rooms": {"type": "integer", "description": "Number of rooms."},
-        "nightly_rate_usd": {"type": "number", "description": "Nightly price in USD."},
-        "star_rating": {"type": "number", "description": "Star rating, e.g. 4.5."},
-        "walkability_score": {"type": "integer", "description": "Walkability score 0-100."},
-        "amenities": {"type": "array", "items": {"type": "string"}, "description": "Amenities."},
-        "image_url": {"type": "string", "description": "Optional preview image URL."},
-    },
-    required=[
-        "hotel_id", "name", "city", "check_in_date", "check_out_date",
-        "guests", "rooms", "nightly_rate_usd", "star_rating", "walkability_score", "amenities",
-    ],
-)
+class HotelCardGridComponent(BaseModel):
+    """Displays hotel options in a selectable card grid."""
+    title: Optional[str] = Field(default=None, description="Optional title shown above cards.")
+    hotels: list[Hotel] = Field(description="List of hotel options.")
 
-ITINERARY_DAY_SCHEMA: dict[str, Any] = _obj(
-    "Represents one day in the itinerary timeline.",
-    properties={
-        "date": {"type": "string", "description": "Date YYYY-MM-DD."},
-        "pace": {"type": "string", "description": "Travel pace for the day."},
-        "activities": {"type": "array", "items": {"type": "string"}, "description": "Activities."},
-        "image_url": {"type": "string", "description": "Optional cover image URL."},
-    },
-    required=["date", "pace", "activities"],
-)
+class ItineraryTimelineComponent(BaseModel):
+    """Displays a day-by-day itinerary timeline with activities."""
+    title: Optional[str] = Field(default=None, description="Optional section title.")
+    days: list[ItineraryDay] = Field(description="Ordered itinerary days.")
 
-BUDGET_BREAKDOWN_SCHEMA: dict[str, Any] = _obj(
-    "Trip cost estimate in USD broken down by category.",
-    properties={
-        "flight": {"type": "number", "description": "Estimated flight total in USD."},
-        "hotel": {"type": "number", "description": "Estimated hotel total in USD."},
-        "food_and_local_transport": {"type": "number", "description": "Food and transport total."},
-        "total_estimate": {"type": "number", "description": "Overall trip estimate in USD."},
-    },
-    required=["flight", "hotel", "food_and_local_transport", "total_estimate"],
-)
+class BudgetBreakdownComponent(BaseModel):
+    """Displays a visual budget summary for trip costs."""
+    title: Optional[str] = Field(default=None, description="Optional section title.")
+    estimated_cost_breakdown_usd: BudgetBreakdownData = Field(description="Cost breakdown by category.")
 
 
-# Compose into component-level schemas
+# ---------------------------------------------------------------------------
+# Compose into Thesys metadata
+# ---------------------------------------------------------------------------
 
-CUSTOM_COMPONENT_SCHEMAS: dict[str, Any] = {
-    "FlightList": _obj(
-        "Displays multiple flight options in an interactive selectable list.",
-        properties={
-            "title": {"type": "string", "description": "Optional title above flight cards."},
-            "flights": {"type": "array", "items": FLIGHT_SCHEMA, "description": "Flight options."},
-        },
-        required=["flights"],
-    ),
-    "HotelCardGrid": _obj(
-        "Displays hotel options in a selectable card grid.",
-        properties={
-            "title": {"type": "string", "description": "Optional title above hotel cards."},
-            "hotels": {"type": "array", "items": HOTEL_SCHEMA, "description": "Hotel options."},
-        },
-        required=["hotels"],
-    ),
-    "ItineraryTimeline": _obj(
-        "Displays a day-by-day itinerary timeline with activities.",
-        properties={
-            "title": {"type": "string", "description": "Optional section title."},
-            "days": {"type": "array", "items": ITINERARY_DAY_SCHEMA, "description": "Itinerary days."},
-        },
-        required=["days"],
-    ),
-    "BudgetBreakdown": _obj(
-        "Displays a visual budget summary for trip costs.",
-        properties={
-            "title": {"type": "string", "description": "Optional section title."},
-            "estimated_cost_breakdown_usd": BUDGET_BREAKDOWN_SCHEMA,
-        },
-        required=["estimated_cost_breakdown_usd"],
-    ),
+CUSTOM_COMPONENT_SCHEMAS = {
+    "FlightList": FlightListComponent.model_json_schema(),
+    "HotelCardGrid": HotelCardGridComponent.model_json_schema(),
+    "ItineraryTimeline": ItineraryTimelineComponent.model_json_schema(),
+    "BudgetBreakdown": BudgetBreakdownComponent.model_json_schema(),
 }
 
 # Serialize into the metadata format Thesys expects
@@ -581,7 +560,7 @@ THESYS_CUSTOM_COMPONENT_METADATA: dict[str, str] = {
 }
 ```
 
-The final `THESYS_CUSTOM_COMPONENT_METADATA` dict is what gets passed to the model via `LiteLlm(metadata=...)`. It tells the Thesys C1 model: "Here are the rich UI components you can render, and here are their exact data shapes."
+The final `THESYS_CUSTOM_COMPONENT_METADATA` dict is what gets passed to the model via `LiteLlm(metadata=...)`. It tells the Thesys C1 model: "Here are the rich UI components you can render, and here are their exact data shapes." Using `model_json_schema()` ensures the schema always perfectly matches our runtime models.
 
 ## Step 5: Agent Runtime (`agent.py`)
 
@@ -806,9 +785,232 @@ export default function RootLayout({
 
 Import `@crayonai/react-ui/styles/index.css` for base C1Chat styling, then your own `globals.css` for custom component styles.
 
-## Step 8: Main Page (`page.tsx`)
+## Step 8: Custom React Components
 
-The entire page is just a `C1Chat` component with custom components registered:
+The frontend components are split across multiple focused files for maintainability. Each file has a single responsibility.
+
+### 9a. Shared Types (`types.ts`)
+
+First, define the TypeScript types that mirror the backend schemas:
+
+```tsx
+export type Flight = {
+  flight_id: string;
+  airline: string;
+  origin: string;
+  destination: string;
+  departure_date: string;
+  departure_time_local: string;
+  duration_hours: number;
+  stops: number;
+  cabin_class: string;
+  total_price_usd: number;
+  image_url?: string;
+};
+
+export type Hotel = {
+  hotel_id: string;
+  name: string;
+  city: string;
+  check_in_date: string;
+  check_out_date: string;
+  guests: number;
+  rooms: number;
+  nightly_rate_usd: number;
+  star_rating: number;
+  walkability_score: number;
+  amenities: string[];
+  image_url?: string;
+};
+
+export type ItineraryDay = {
+  date: string;
+  pace: string;
+  activities: string[];
+  image_url?: string;
+};
+
+export type CostBreakdown = {
+  flight: number;
+  hotel: number;
+  food_and_local_transport: number;
+  total_estimate: number;
+};
+```
+
+### 9b. Trigger Utility (`triggers.ts`)
+
+When a user clicks a button (e.g., "Choose flight"), the component sends a machine-readable `COMPONENT_TRIGGER` message back to the agent. This utility encapsulates that protocol:
+
+```tsx
+"use client";
+
+import { useOnAction } from "@thesysai/genui-sdk";
+
+export type TriggerPayload = Record<string, unknown>;
+export type OnActionFn = ReturnType<typeof useOnAction>;
+
+export function fireTrigger(
+  onAction: OnActionFn,
+  action: string,
+  payload: TriggerPayload,
+  humanMessage: string
+) {
+  const serializedPayload = JSON.stringify({
+    source: "travel_custom_component",
+    action,
+    payload,
+  });
+
+  onAction(
+    humanMessage,
+    [
+      `COMPONENT_TRIGGER ${serializedPayload}`,
+      "Treat this as an explicit user action from the UI.",
+      "Use tools as needed and respond with updated travel recommendations using custom components.",
+    ].join("\n")
+  );
+}
+```
+
+`fireTrigger` sends two things: a human-visible message (e.g., "Select flight") and a hidden instruction block containing the structured JSON. The backend system prompt tells the model how to parse `COMPONENT_TRIGGER` lines.
+
+### 9c. Selection Hook (`hooks/use-selections.ts`)
+
+Use `useC1State` to track which flight and hotel the user has selected. This hook is shared across multiple components:
+
+```tsx
+"use client";
+
+import { useC1State } from "@thesysai/genui-sdk";
+
+export function useSelections() {
+  const { getValue: getSelectedFlightId } = useC1State("selected_flight_id");
+  const { getValue: getSelectedHotelId } = useC1State("selected_hotel_id");
+  const selectedFlightId = getSelectedFlightId() as string | undefined;
+  const selectedHotelId = getSelectedHotelId() as string | undefined;
+
+  return {
+    selectedFlightId,
+    selectedHotelId,
+    hasBothSelections: Boolean(selectedFlightId && selectedHotelId),
+  };
+}
+```
+
+### 9d. Shared Components (`components/CardImage.tsx`, `components/SelectionGate.tsx`)
+
+`CardImage` renders lazy-loaded preview images across flight cards, hotel cards, and itinerary days:
+
+```tsx
+"use client";
+
+export function CardImage({ src, alt }: { src?: string; alt: string }) {
+  if (!src) return null;
+  return <img src={src} alt={alt} className="custom-card-image" loading="lazy" />;
+}
+```
+
+`SelectionGate` encapsulates the gating pattern used by `ItineraryTimeline` and `BudgetBreakdown` — it shows a locked state until both a flight and hotel are selected:
+
+```tsx
+"use client";
+
+import { useSelections } from "../hooks/use-selections";
+
+export function SelectionGate({
+  title,
+  children,
+  lockedMessage = "Select your recommended flight and hotel first.",
+}: {
+  title: string;
+  children: React.ReactNode;
+  lockedMessage?: string;
+}) {
+  const { selectedFlightId, selectedHotelId, hasBothSelections } = useSelections();
+
+  if (!hasBothSelections) {
+    return (
+      <section className="custom-card-stack">
+        <header className="custom-header-row">
+          <h3>{title}</h3>
+          <span>Locked until selections</span>
+        </header>
+        <div className="selection-gate">
+          <p>{lockedMessage}</p>
+          <p>
+            Flight: {selectedFlightId ? "Selected" : "Not selected"} • Hotel:{" "}
+            {selectedHotelId ? "Selected" : "Not selected"}
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  return <>{children}</>;
+}
+```
+
+This replaces the duplicated gating `if` blocks that previously appeared in both `ItineraryTimeline` and `BudgetBreakdown`.
+
+### 9e. Selection Components (`components/FlightList.tsx`, `components/HotelCardGrid.tsx`)
+
+These components render selectable cards. When a user clicks "Choose flight", two things happen:
+
+1. **Local state update** via `setValue(flight.flight_id)` — provides instant UI feedback (the card highlights)
+2. **Agent trigger** via `fireTrigger(onAction, "select_flight", ...)` — tells the agent which flight was chosen
+
+Each component imports its types from `../types`, the trigger utility from `../triggers`, and the shared `CardImage` from `./CardImage`. The same pattern applies to `HotelCardGrid` with hotels.
+
+> See the full implementations: [FlightList.tsx](file:///Applications/Projects/Demos/theysis/travel-planner/frontend/app/components/FlightList.tsx) and [HotelCardGrid.tsx](file:///Applications/Projects/Demos/theysis/travel-planner/frontend/app/components/HotelCardGrid.tsx).
+
+### 9f. Gated Components (`components/ItineraryTimeline.tsx`, `components/BudgetBreakdown.tsx`)
+
+These components wrap their content in `<SelectionGate>` instead of implementing inline gating logic:
+
+```tsx
+export function ItineraryTimeline({ days, title = "Daily Itinerary" }: { ... }) {
+  const onAction = useOnAction();
+
+  return (
+    <SelectionGate title={title}>
+      <section className="custom-card-stack">
+        {/* Itinerary content — only renders when both selections exist */}
+      </section>
+    </SelectionGate>
+  );
+}
+```
+
+This enforces the staged flow defined in the system prompt. Even if the model tries to render an itinerary early, the frontend won't display it until the user has made selections.
+
+> See the full implementations: [ItineraryTimeline.tsx](file:///Applications/Projects/Demos/theysis/travel-planner/frontend/app/components/ItineraryTimeline.tsx) and [BudgetBreakdown.tsx](file:///Applications/Projects/Demos/theysis/travel-planner/frontend/app/components/BudgetBreakdown.tsx).
+
+### 9g. Barrel Export (`components/index.ts`)
+
+This file re-exports all four components so `page.tsx` can use a clean import:
+
+```ts
+export { FlightList } from "./FlightList";
+export { HotelCardGrid } from "./HotelCardGrid";
+export { ItineraryTimeline } from "./ItineraryTimeline";
+export { BudgetBreakdown } from "./BudgetBreakdown";
+```
+
+### Trigger actions summary
+
+The components support these trigger actions:
+
+| Component | Actions |
+|-----------|---------|
+| `FlightList` | `select_flight`, `compare_flights` |
+| `HotelCardGrid` | `select_hotel`, `compare_hotels` |
+| `ItineraryTimeline` | `refine_itinerary_day`, `regenerate_itinerary` |
+| `BudgetBreakdown` | `optimize_budget`, `finalize_plan_with_selections` |
+
+## Step 9: Main Page (`page.tsx`)
+
+Now that the components exist, wire them into the page. The entire page is just a `C1Chat` component with the custom components registered:
 
 ```tsx
 "use client";
@@ -843,107 +1045,9 @@ export default function HomePage() {
 }
 ```
 
+The import `from "./components"` resolves to `components/index.ts` — a **barrel export** file that re-exports all four components. This keeps the import clean even though each component lives in its own file.
+
 The keys in `customComponents` — `FlightList`, `HotelCardGrid`, etc. — **must match exactly** the keys in `CUSTOM_COMPONENT_SCHEMAS` from the backend. When the model outputs a component payload with name `FlightList`, C1Chat looks up and renders the corresponding React component.
-
-## Step 9: Custom React Components (`components.tsx`)
-
-This is the most code-heavy file. It contains four components and a trigger protocol for sending user actions back to the agent.
-
-### The trigger protocol
-
-When a user clicks a button (e.g., "Choose flight"), the component sends a machine-readable `COMPONENT_TRIGGER` message back to the agent:
-
-```tsx
-"use client";
-
-import { useC1State, useOnAction } from "@thesysai/genui-sdk";
-
-type TriggerPayload = Record<string, unknown>;
-type OnActionFn = ReturnType<typeof useOnAction>;
-
-function fireTrigger(
-  onAction: OnActionFn,
-  action: string,
-  payload: TriggerPayload,
-  humanMessage: string
-) {
-  const serializedPayload = JSON.stringify({
-    source: "travel_custom_component",
-    action,
-    payload,
-  });
-
-  onAction(
-    humanMessage,
-    [
-      `COMPONENT_TRIGGER ${serializedPayload}`,
-      "Treat this as an explicit user action from the UI.",
-      "Use tools as needed and respond with updated travel recommendations using custom components.",
-    ].join("\n")
-  );
-}
-```
-
-`fireTrigger` sends two things: a human-visible message (e.g., "Select flight") and a hidden instruction block containing the structured JSON. The backend system prompt tells the model how to parse `COMPONENT_TRIGGER` lines.
-
-### Shared selection state
-
-Use `useC1State` to track which flight and hotel the user has selected across all components:
-
-```tsx
-function useSelections() {
-  const { getValue: getSelectedFlightId } = useC1State("selected_flight_id");
-  const { getValue: getSelectedHotelId } = useC1State("selected_hotel_id");
-  const selectedFlightId = getSelectedFlightId() as string | undefined;
-  const selectedHotelId = getSelectedHotelId() as string | undefined;
-
-  return {
-    selectedFlightId,
-    selectedHotelId,
-    hasBothSelections: Boolean(selectedFlightId && selectedHotelId),
-  };
-}
-```
-
-### FlightList and HotelCardGrid
-
-These components render selectable cards. When a user clicks "Choose flight", two things happen:
-
-1. **Local state update** via `setValue(flight.flight_id)` — provides instant UI feedback (the card highlights)
-2. **Agent trigger** via `fireTrigger(onAction, "select_flight", ...)` — tells the agent which flight was chosen
-
-The same pattern applies to `HotelCardGrid`.
-
-### ItineraryTimeline and BudgetBreakdown (gated components)
-
-These components use the `useSelections()` hook and **refuse to render** until both a flight and hotel are selected:
-
-```tsx
-const { hasBothSelections } = useSelections();
-
-if (!hasBothSelections) {
-  return (
-    <section className="custom-card-stack">
-      <div className="selection-gate">
-        <p>Select your recommended flight and hotel first.</p>
-      </div>
-    </section>
-  );
-}
-```
-
-This enforces the staged flow defined in the system prompt. Even if the model tries to render an itinerary early, the frontend won't display it until the user has made selections.
-
-The full `components.tsx` file includes these trigger actions:
-
-| Component | Actions |
-|-----------|---------|
-| `FlightList` | `select_flight`, `compare_flights` |
-| `HotelCardGrid` | `select_hotel`, `compare_hotels` |
-| `ItineraryTimeline` | `refine_itinerary_day`, `regenerate_itinerary` |
-| `BudgetBreakdown` | `optimize_budget`, `finalize_plan_with_selections` |
-
-> See the full component implementations in [`components.tsx`](file:///Applications/Projects/Demos/theysis/travel-planner/frontend/app/components.tsx).
 
 ## Step 10: Styling (`globals.css`)
 

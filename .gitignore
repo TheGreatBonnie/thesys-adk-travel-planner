@@ -21,3 +21,6 @@ frontend/.env.local
 
 # Logs
 *.log
+
+# Docs
+tutorial.md

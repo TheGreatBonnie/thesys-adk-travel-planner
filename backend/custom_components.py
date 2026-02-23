@@ -1,216 +1,118 @@
-"""Schemas for frontend Thesys custom components."""
+"""Pydantic models and Thesys metadata for frontend custom components.
+
+Each model defines both the runtime type and the JSON schema that gets
+sent to the Thesys C1 model via metadata, telling it exactly what data
+shape to produce when rendering a frontend component.
+"""
 
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
-def _obj(description: str, properties: dict[str, Any], required: list[str]) -> dict[str, Any]:
-    # Step 1: Use one helper to enforce consistent JSON-schema structure.
-    return {
-        "type": "object",
-        "description": description,
-        "properties": properties,
-        "required": required,
-        "additionalProperties": False,
-    }
+# ---------------------------------------------------------------------------
+# Item models — one per entity rendered inside a component
+# ---------------------------------------------------------------------------
 
 
-# Step 2: Define reusable base schema for a single flight card item.
-FLIGHT_SCHEMA: dict[str, Any] = _obj(
-    "Represents a single flight option for a route and date.",
-    properties={
-        "flight_id": {"type": "string", "description": "Unique flight identifier."},
-        "airline": {"type": "string", "description": "Airline name."},
-        "origin": {"type": "string", "description": "Departure airport or city."},
-        "destination": {"type": "string", "description": "Arrival airport or city."},
-        "departure_date": {
-            "type": "string",
-            "description": "Departure date in YYYY-MM-DD format.",
-        },
-        "departure_time_local": {
-            "type": "string",
-            "description": "Local departure time HH:MM.",
-        },
-        "duration_hours": {
-            "type": "number",
-            "description": "Total flight duration in hours.",
-        },
-        "stops": {"type": "integer", "description": "Number of stops."},
-        "cabin_class": {"type": "string", "description": "Cabin class."},
-        "total_price_usd": {
-            "type": "number",
-            "description": "Total price in USD for all travelers.",
-        },
-        "image_url": {
-            "type": "string",
-            "description": "Optional preview image URL for the flight card.",
-        },
-    },
-    required=[
-        "flight_id",
-        "airline",
-        "origin",
-        "destination",
-        "departure_date",
-        "departure_time_local",
-        "duration_hours",
-        "stops",
-        "cabin_class",
-        "total_price_usd",
-    ],
-)
+class Flight(BaseModel):
+    """Represents a single flight option for a route and date."""
 
-# Step 3: Define reusable base schema for a single hotel card item.
-HOTEL_SCHEMA: dict[str, Any] = _obj(
-    "Represents a hotel option including nightly rate and trip dates.",
-    properties={
-        "hotel_id": {"type": "string", "description": "Unique hotel identifier."},
-        "name": {"type": "string", "description": "Hotel name."},
-        "city": {"type": "string", "description": "City where hotel is located."},
-        "check_in_date": {
-            "type": "string",
-            "description": "Check-in date in YYYY-MM-DD format.",
-        },
-        "check_out_date": {
-            "type": "string",
-            "description": "Check-out date in YYYY-MM-DD format.",
-        },
-        "guests": {"type": "integer", "description": "Number of guests."},
-        "rooms": {"type": "integer", "description": "Number of rooms."},
-        "nightly_rate_usd": {
-            "type": "number",
-            "description": "Nightly price in USD.",
-        },
-        "star_rating": {"type": "number", "description": "Star rating, e.g. 4.5."},
-        "walkability_score": {
-            "type": "integer",
-            "description": "Walkability score from 0 to 100.",
-        },
-        "amenities": {
-            "type": "array",
-            "items": {"type": "string"},
-            "description": "List of included amenities.",
-        },
-        "image_url": {
-            "type": "string",
-            "description": "Optional preview image URL for the hotel card.",
-        },
-    },
-    required=[
-        "hotel_id",
-        "name",
-        "city",
-        "check_in_date",
-        "check_out_date",
-        "guests",
-        "rooms",
-        "nightly_rate_usd",
-        "star_rating",
-        "walkability_score",
-        "amenities",
-    ],
-)
+    flight_id: str = Field(description="Unique flight identifier.")
+    airline: str = Field(description="Airline name.")
+    origin: str = Field(description="Departure airport or city.")
+    destination: str = Field(description="Arrival airport or city.")
+    departure_date: str = Field(description="Departure date in YYYY-MM-DD format.")
+    departure_time_local: str = Field(description="Local departure time HH:MM.")
+    duration_hours: float = Field(description="Total flight duration in hours.")
+    stops: int = Field(description="Number of stops.")
+    cabin_class: str = Field(description="Cabin class.")
+    total_price_usd: float = Field(description="Total price in USD for all travelers.")
+    image_url: Optional[str] = Field(default=None, description="Optional preview image URL for the flight card.")
 
-# Step 4: Define reusable base schema for one itinerary timeline day.
-ITINERARY_DAY_SCHEMA: dict[str, Any] = _obj(
-    "Represents one day in the itinerary timeline.",
-    properties={
-        "date": {"type": "string", "description": "Date in YYYY-MM-DD format."},
-        "pace": {"type": "string", "description": "Travel pace for the day."},
-        "activities": {
-            "type": "array",
-            "items": {"type": "string"},
-            "description": "Planned activities for the day.",
-        },
-        "image_url": {
-            "type": "string",
-            "description": "Optional cover image URL for the itinerary day.",
-        },
-    },
-    required=["date", "pace", "activities"],
-)
 
-# Step 5: Define reusable base schema for trip budget totals.
-BUDGET_BREAKDOWN_SCHEMA: dict[str, Any] = _obj(
-    "Trip cost estimate in USD broken down by category.",
-    properties={
-        "flight": {"type": "number", "description": "Estimated flight total in USD."},
-        "hotel": {"type": "number", "description": "Estimated hotel total in USD."},
-        "food_and_local_transport": {
-            "type": "number",
-            "description": "Estimated food and local transport total in USD.",
-        },
-        "total_estimate": {
-            "type": "number",
-            "description": "Overall trip estimate in USD.",
-        },
-    },
-    required=["flight", "hotel", "food_and_local_transport", "total_estimate"],
-)
+class Hotel(BaseModel):
+    """Represents a hotel option including nightly rate and trip dates."""
 
-# Step 6: Compose component-level schemas consumed by the frontend renderer.
-CUSTOM_COMPONENT_SCHEMAS: dict[str, Any] = {
-    "FlightList": _obj(
-        "Displays multiple flight options in an interactive selectable list.",
-        properties={
-            "title": {
-                "type": "string",
-                "description": "Optional title shown above flight cards.",
-            },
-            "flights": {
-                "type": "array",
-                "items": FLIGHT_SCHEMA,
-                "description": "List of flight options.",
-            },
-        },
-        required=["flights"],
-    ),
-    "HotelCardGrid": _obj(
-        "Displays hotel options in a selectable card grid.",
-        properties={
-            "title": {
-                "type": "string",
-                "description": "Optional title shown above hotel cards.",
-            },
-            "hotels": {
-                "type": "array",
-                "items": HOTEL_SCHEMA,
-                "description": "List of hotel options.",
-            },
-        },
-        required=["hotels"],
-    ),
-    "ItineraryTimeline": _obj(
-        "Displays a day-by-day itinerary timeline with activities.",
-        properties={
-            "title": {
-                "type": "string",
-                "description": "Optional section title.",
-            },
-            "days": {
-                "type": "array",
-                "items": ITINERARY_DAY_SCHEMA,
-                "description": "Ordered itinerary days.",
-            },
-        },
-        required=["days"],
-    ),
-    "BudgetBreakdown": _obj(
-        "Displays a visual budget summary for trip costs.",
-        properties={
-            "title": {
-                "type": "string",
-                "description": "Optional section title.",
-            },
-            "estimated_cost_breakdown_usd": BUDGET_BREAKDOWN_SCHEMA,
-        },
-        required=["estimated_cost_breakdown_usd"],
-    ),
+    hotel_id: str = Field(description="Unique hotel identifier.")
+    name: str = Field(description="Hotel name.")
+    city: str = Field(description="City where hotel is located.")
+    check_in_date: str = Field(description="Check-in date in YYYY-MM-DD format.")
+    check_out_date: str = Field(description="Check-out date in YYYY-MM-DD format.")
+    guests: int = Field(description="Number of guests.")
+    rooms: int = Field(description="Number of rooms.")
+    nightly_rate_usd: float = Field(description="Nightly price in USD.")
+    star_rating: float = Field(description="Star rating, e.g. 4.5.")
+    walkability_score: int = Field(description="Walkability score from 0 to 100.")
+    amenities: list[str] = Field(description="List of included amenities.")
+    image_url: Optional[str] = Field(default=None, description="Optional preview image URL for the hotel card.")
+
+
+class ItineraryDay(BaseModel):
+    """Represents one day in the itinerary timeline."""
+
+    date: str = Field(description="Date in YYYY-MM-DD format.")
+    pace: str = Field(description="Travel pace for the day.")
+    activities: list[str] = Field(description="Planned activities for the day.")
+    image_url: Optional[str] = Field(default=None, description="Optional cover image URL for the itinerary day.")
+
+
+class BudgetBreakdownData(BaseModel):
+    """Trip cost estimate in USD broken down by category."""
+
+    flight: float = Field(description="Estimated flight total in USD.")
+    hotel: float = Field(description="Estimated hotel total in USD.")
+    food_and_local_transport: float = Field(description="Estimated food and local transport total in USD.")
+    total_estimate: float = Field(description="Overall trip estimate in USD.")
+
+
+# ---------------------------------------------------------------------------
+# Component models — one per frontend React component
+# ---------------------------------------------------------------------------
+
+
+class FlightListComponent(BaseModel):
+    """Displays multiple flight options in an interactive selectable list."""
+
+    title: Optional[str] = Field(default=None, description="Optional title shown above flight cards.")
+    flights: list[Flight] = Field(description="List of flight options.")
+
+
+class HotelCardGridComponent(BaseModel):
+    """Displays hotel options in a selectable card grid."""
+
+    title: Optional[str] = Field(default=None, description="Optional title shown above hotel cards.")
+    hotels: list[Hotel] = Field(description="List of hotel options.")
+
+
+class ItineraryTimelineComponent(BaseModel):
+    """Displays a day-by-day itinerary timeline with activities."""
+
+    title: Optional[str] = Field(default=None, description="Optional section title.")
+    days: list[ItineraryDay] = Field(description="Ordered itinerary days.")
+
+
+class BudgetBreakdownComponent(BaseModel):
+    """Displays a visual budget summary for trip costs."""
+
+    title: Optional[str] = Field(default=None, description="Optional section title.")
+    estimated_cost_breakdown_usd: BudgetBreakdownData = Field(description="Cost breakdown by category.")
+
+
+# ---------------------------------------------------------------------------
+# Compose into Thesys metadata
+# ---------------------------------------------------------------------------
+
+CUSTOM_COMPONENT_SCHEMAS = {
+    "FlightList": FlightListComponent.model_json_schema(),
+    "HotelCardGrid": HotelCardGridComponent.model_json_schema(),
+    "ItineraryTimeline": ItineraryTimelineComponent.model_json_schema(),
+    "BudgetBreakdown": BudgetBreakdownComponent.model_json_schema(),
 }
 
-# Step 7: Serialize schemas into Thesys metadata format expected by the model.
 THESYS_CUSTOM_COMPONENT_METADATA: dict[str, str] = {
     "thesys": json.dumps({"c1_custom_components": CUSTOM_COMPONENT_SCHEMAS})
 }

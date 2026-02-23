@@ -15,11 +15,12 @@ from google.genai.types import Content, Part
 from config import (
     APP_NAME,
     DEFAULT_USER_ID,
-    SYSTEM_PROMPT,
     THESYS_API_KEY,
     THESYS_BASE_URL,
     THESYS_MODEL,
 )
+
+from prompt import SYSTEM_PROMPT
 from custom_components import THESYS_CUSTOM_COMPONENT_METADATA
 from tools import build_daily_itinerary, search_flights, search_hotels, summarize_trip_plan
 

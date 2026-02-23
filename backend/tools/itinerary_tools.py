@@ -49,6 +49,7 @@ def build_daily_itinerary(
 
     # Step 6: Build each day and select activities in a deterministic rotation.
     for offset in range(day_count):
+        seed = f"{destination}-{start.isoformat()}-{offset}"
         current = start + timedelta(days=offset)
         picks: list[str] = []
         for slot in range(slots_per_day):
@@ -62,7 +63,7 @@ def build_daily_itinerary(
                 "date": current.isoformat(),
                 "pace": pace,
                 "activities": picks,
-                "image_url": _mock_image_url(f"{destination}-{current.isoformat()}-{pace}"),
+                "image_url": _mock_image_url(f"{seed}-image"),
             }
         )
 
@@ -78,16 +79,35 @@ def summarize_trip_plan(
 ) -> dict[str, Any]:
     """Build a high-level trip summary and cost estimate."""
     # Step 1: Treat the first option in each list as the recommended choice.
-    best_flight = flights[0] if flights else None
-    best_hotel = hotels[0] if hotels else None
+    best_flight = dict(flights[0]) if flights else None
+    best_hotel = dict(hotels[0]) if hotels else None
 
-    # Step 2: Estimate line items from recommendations and itinerary length.
+    # Step 2: Ensure recommendation cards still have deterministic images
+    # even when upstream callers provide objects without image_url.
+    if best_flight and not best_flight.get("image_url"):
+        flight_seed = (
+            f"{best_flight.get('origin', 'flight')}-"
+            f"{best_flight.get('destination', 'route')}-"
+            f"{best_flight.get('departure_date', 'date')}-"
+            f"{best_flight.get('airline', 'airline')}"
+        )
+        best_flight["image_url"] = _mock_image_url(f"{flight_seed}-image")
+    if best_hotel and not best_hotel.get("image_url"):
+        hotel_seed = (
+            f"{best_hotel.get('city', 'city')}-"
+            f"{best_hotel.get('check_in_date', 'check-in')}-"
+            f"{best_hotel.get('check_out_date', 'check-out')}-"
+            f"{best_hotel.get('name', 'hotel')}"
+        )
+        best_hotel["image_url"] = _mock_image_url(f"{hotel_seed}-image")
+
+    # Step 3: Estimate line items from recommendations and itinerary length.
     nights = max(0, len(itinerary) - 1)
     flight_cost = int(best_flight["total_price_usd"]) if best_flight else 0
     hotel_cost = int(best_hotel["nightly_rate_usd"]) * nights if best_hotel else 0
     food_local = 65 * max(1, len(itinerary)) * max(1, travelers)
 
-    # Step 3: Return a structured summary used by the budget component.
+    # Step 4: Return a structured summary used by the budget component.
     return {
         "recommended_flight": best_flight,
         "recommended_hotel": best_hotel,
