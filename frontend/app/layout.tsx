@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "@crayonai/react-ui/styles/index.css";
-// import "@thesysai/genui-sdk/styles";
 import "./globals.css";
 
 export const metadata: Metadata = {

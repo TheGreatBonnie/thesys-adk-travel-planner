@@ -10,7 +10,7 @@ load_dotenv()
 THESYS_API_KEY = os.getenv("THESYS_API_KEY", "")
 THESYS_BASE_URL = os.getenv("THESYS_BASE_URL", "https://api.thesys.dev/v1/embed")
 THESYS_MODEL = os.getenv(
-    "THESYS_MODEL", "openai/c1/anthropic/claude-sonnet-4/v-20251230"
+    "THESYS_MODEL", "c1/openai/anthropic/claude-sonnet-4/v-20251230"
 )
 
 APP_NAME = os.getenv("APP_NAME", "travel_planner")
